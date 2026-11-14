@@ -1,0 +1,30 @@
+# A new build pushed to the "upload" branch (XOperations.apk, version.txt,
+# changes.txt) becomes the files of the one release, "latest", replacing the
+# old ones; then the branch goes, so the repository keeps no apks.
+name: publish
+on:
+  push:
+    branches: [upload]
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: upload
+      - name: Replace the release's files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          V=$(tr -d '[:space:]' < version.txt)
+          R="$GITHUB_REPOSITORY"
+          if ! gh release view latest -R "$R" >/dev/null 2>&1; then
+            gh release create latest -R "$R" --target main --title "touch$V" --notes-file changes.txt --latest
+          fi
+          gh release upload latest XOperations.apk version.txt changes.txt -R "$R" --clobber
+          gh release edit latest -R "$R" --title "touch$V" --notes-file changes.txt
+      - name: Drop the upload branch
+        run: git push origin --delete upload
